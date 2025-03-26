@@ -1,4 +1,4 @@
-import type { Tapleaf, Taptree } from "bitcoinjs-lib/src/types"
+import type { Tapleaf, Taptree } from "bitcoinjs-lib/src/types.js"
 
 type Inputs = { weight: number, leaf: Tapleaf }[]
 type Node = {
