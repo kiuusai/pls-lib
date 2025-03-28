@@ -39,10 +39,7 @@ describe(
 
       const xOnlyPubkey = toXOnly(initialEcpair.publicKey);
 
-      const expectedTweakedXOnlyPubkey = ecc.xOnlyPointAddTweak(xOnlyPubkey, tweak);
-
-      if (!expectedTweakedXOnlyPubkey)
-        throw new TypeError("tweak test key is undefined");
+      const expectedTweakedXOnlyPubkey = ecc.xOnlyPointAddTweak(xOnlyPubkey, tweak)!;
 
       const parityByte = Buffer.from([
         expectedTweakedXOnlyPubkey.parity === 0 ? 0x02 : 0x03,
@@ -68,17 +65,11 @@ describe(
 
       const pubkey = initialEcpair.publicKey;
 
-      if (!initialEcpair.privateKey)
-        throw new TypeError("test private key is undefined");
-
       const hasOddY = pubkey[0] === 3 || (pubkey[0] === 4 && ((pubkey[64] || 0) & 1) === 1);
 
-      const privateKey = hasOddY ? ecc.privateNegate(initialEcpair.privateKey) : initialEcpair.privateKey;
+      const privateKey = hasOddY ? ecc.privateNegate(initialEcpair.privateKey!) : initialEcpair.privateKey!;
 
-      const privkeyAdd = ecc.privateAdd(privateKey, tweak);
-
-      if (!privkeyAdd)
-        throw new TypeError("privkeyAdd is null");
+      const privkeyAdd = ecc.privateAdd(privateKey, tweak)!;
 
       const expectedTweakedPrivkey = Buffer.from(privkeyAdd);
 
@@ -104,7 +95,7 @@ describe(
       expect(tweakedEcpair.privateKey).toEqual(tweakedPrivkey);
     });
 
-    it("Sign message correctly", () => {
+    it("sign message correctly", () => {
       const tweaker = createKeyTweaker({
         pubkey: initialEcpair.publicKey,
         privkey: initialEcpair.privateKey,

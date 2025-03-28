@@ -12,8 +12,6 @@ import {
 	script,
 	type Network,
 	payments,
-	type SignerAsync,
-	type Signer,
 	Psbt,
 } from "bitcoinjs-lib";
 import { PubkeysSchema } from "pls-core";
