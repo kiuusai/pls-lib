@@ -33,9 +33,9 @@ class SortedList<T> {
 
       mid = Math.floor((low + high) / 2)
 
-      highElement = this.array[high]
-      lowElement = this.array[low]
-      midElement = this.array[mid]
+      highElement = this.array[high]!
+      lowElement = this.array[low]!
+      midElement = this.array[mid]!
 
       compareHigh = this.compare(element, highElement)
       compareLow = this.compare(element, lowElement)
