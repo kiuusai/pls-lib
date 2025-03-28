@@ -12,6 +12,8 @@ import {
 
 const ECPair = ECPairFactory(ecc);
 
+bitcoin.initEccLib(ecc);
+
 describe.each([
   {
     withTweak: false,

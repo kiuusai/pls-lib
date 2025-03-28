@@ -15,6 +15,8 @@ import {
 
 const ECPair = ECPairFactory(ecc);
 
+bitcoin.initEccLib(ecc);
+
 type CreateBitcoinMultisigTableElement = {
   parts: number;
   arbitrators: number;
