@@ -33,13 +33,13 @@ describe.each([
 
     const network = bitcoin.networks.regtest;
 
-    const multisig = createBitcoinMultisig(
-      partsEcpairs,
-      [arbitratorEcpair],
-      1,
+    const multisig = createBitcoinMultisig({
+      publicPartsECPairs: partsEcpairs,
+      publicArbitratorsECPairs: [arbitratorEcpair],
+      arbitratorsQuorum: 1,
       network,
-      withTweak ? tweak : undefined,
-    );
+      tweak: withTweak ? tweak : undefined,
+    });
 
     const tweakedSelectedCombination = withTweak ? partsEcpairs.map(ecpair => {
       const tweaker = createKeyTweaker({

@@ -10,13 +10,21 @@ import { combine, H } from "./utils/index.js";
 import { createKeyTweaker } from "./createKeyTweaker.js";
 import { sortScriptsIntoTree } from "./huffman.js";
 
-export function createBitcoinMultisig(
-	publicPartsECPairs: ECPairInterface[],
-	publicArbitratorsECPairs: ECPairInterface[],
-	arbitratorsQuorum: number,
-	network: Network,
-	tweak?: Buffer,
-) {
+type CreateBitcoinMultisigArgs = {
+	publicPartsECPairs: ECPairInterface[];
+	publicArbitratorsECPairs: ECPairInterface[];
+	arbitratorsQuorum: number;
+	network: Network;
+	tweak?: Buffer;
+}
+
+export function createBitcoinMultisig({
+	publicPartsECPairs,
+	publicArbitratorsECPairs,
+	arbitratorsQuorum,
+	network,
+	tweak,
+}: CreateBitcoinMultisigArgs) {
 	const eachChildNodeWithArbitratorsQuorum = publicPartsECPairs
 		.map((p) =>
 			combine(publicArbitratorsECPairs, arbitratorsQuorum).map((a) => [p, ...a])

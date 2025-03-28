@@ -78,13 +78,13 @@ describe.each<CreateBitcoinMultisigTableElement>(createBitcoinMultisigTableEleme
     ];
 
     test("bitcoin multisig assembly", () => {
-      const multisig = createBitcoinMultisig(
-        partsEcpairs,
-        arbitratorsEcpairs,
+      const multisig = createBitcoinMultisig({
+        publicPartsECPairs: partsEcpairs,
+        publicArbitratorsECPairs: arbitratorsEcpairs,
         arbitratorsQuorum,
         network,
-        withTweak ? tweak : undefined,
-      );
+        tweak: withTweak ? tweak : undefined,
+      });
 
       const tweakedChildNodesCombinations = withTweak ? childNodesCombinations.map((childNodes) => childNodes.map((childNode) => {
         const keyTweaker = createKeyTweaker({
@@ -132,13 +132,13 @@ describe.each<CreateBitcoinMultisigTableElement>(createBitcoinMultisigTableEleme
     test.each(childNodesCombinations)(
       "bitcoin multisig spending with each possible combination test %#",
       async (...selectedCombination) => {
-        const multisig = createBitcoinMultisig(
-          partsEcpairs,
-          arbitratorsEcpairs,
+        const multisig = createBitcoinMultisig({
+          publicPartsECPairs: partsEcpairs,
+          publicArbitratorsECPairs: arbitratorsEcpairs,
           arbitratorsQuorum,
           network,
-          withTweak ? tweak : undefined,
-        );
+          tweak: withTweak ? tweak : undefined,
+        });
 
         const inputTransactionId = await takeFromFaucet(multisig.multisig.address!);
 
