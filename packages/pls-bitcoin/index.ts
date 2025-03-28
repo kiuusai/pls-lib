@@ -118,7 +118,8 @@ export function createBitcoinMultisig(
 	publicPartsECPairs: ECPairInterface[],
 	publicArbitratorsECPairs: ECPairInterface[],
 	arbitratorsQuorum: number,
-	network: Network
+	network: Network,
+	tweak?: Buffer,
 ) {
 	const eachChildNodeWithArbitratorsQuorum = publicPartsECPairs
 		.map((p) =>
@@ -129,7 +130,17 @@ export function createBitcoinMultisig(
 		publicPartsECPairs,
 		...eachChildNodeWithArbitratorsQuorum,
 	];
-	const multisigAsms = childNodesCombinations.map(
+
+	const tweakedChildNodesCombinations = tweak !== undefined ? childNodesCombinations.map((childNodes) => childNodes.map((childNode) => {
+		const keyTweaker = createKeyTweaker({
+			pubkey: childNode.publicKey,
+			privkey: childNode.privateKey,
+		});
+
+		return keyTweaker.tweakEcpair(tweak);
+	})) : childNodesCombinations;
+
+	const multisigAsms = tweakedChildNodesCombinations.map(
 		(childNodes) =>
 			childNodes
 				.map((childNode) => toXOnly(childNode.publicKey).toString("hex"))
@@ -145,7 +156,7 @@ export function createBitcoinMultisig(
 			// when building Taptree, prioritize parts agreement script (shortest path), using 1 for parts script and 5 for scripts with arbitrators
 			weight: idx ? 1 : 5,
 			leaf: { output: script.fromASM(ma) },
-			combination: childNodesCombinations[idx]!,
+			combination: tweakedChildNodesCombinations[idx]!,
 		};
 	});
 
