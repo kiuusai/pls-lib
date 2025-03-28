@@ -174,14 +174,15 @@ export function createBitcoinMultisig(
 export async function startTxSpendingFromMultisig(
 	multisig: payments.Payment,
 	redeemOutput: string,
-	signer: Signer | SignerAsync,
+	signer: ECPairInterface,
 	network: Network,
 	receivingAddresses: {
 		address: string;
 		value: number;
 	}[],
 	utxos: UTXO[],
-	locktime?: number
+	locktime?: number,
+	tweak?: Buffer,
 ) {
 	const multisigRedeem = {
 		output: Buffer.from(redeemOutput, "hex"),
@@ -219,7 +220,16 @@ export async function startTxSpendingFromMultisig(
 
 	psbt.addOutputs(receivingAddresses);
 
-	await psbt.signAllInputsAsync(signer);
+	const tweakedSigner = tweak ? (() => {
+		const tweaker = createKeyTweaker({
+			pubkey: signer.publicKey,
+			privkey: signer.privateKey,
+		});
+
+		return tweaker.tweakEcpair(tweak);
+	})() : signer;
+
+	await psbt.signAllInputsAsync(tweakedSigner);
 
 	return psbt;
 }
