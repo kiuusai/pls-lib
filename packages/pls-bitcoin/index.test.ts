@@ -6,6 +6,12 @@ import { combine, createBitcoinMultisig, createKeyTweaker, H, startTxSpendingFro
 import { toXOnly } from "bitcoinjs-lib/src/psbt/bip371.js";
 import { faker } from "@faker-js/faker";
 import { sortScriptsIntoTree } from "./huffman.js";
+import {
+  takeFromFaucet,
+  retryWithDelay,
+  getTransactionHexById,
+  publishTransaction,
+} from "./utils/test.js"
 
 const ECPair = ECPairFactory(ecc);
 
@@ -43,63 +49,6 @@ const createBitcoinMultisigTableElements = [
   ...createBitcoinMultisigTableElementsWithoutTweak,
   ...createBitcoinMultisigTableElementsWithTweak,
 ];
-
-const API_URL = process.env.API_URL || "http://localhost:3000";
-
-async function takeFromFaucet(address: string) {
-	const res = await fetch(`${API_URL}/faucet`, {
-		method: "POST",
-		body: JSON.stringify({
-			address,
-		}),
-	});
-
-	if (!res.ok) throw new Error(await res.text());
-
-	return (await res.json()).txId;
-}
-
-async function getTransactionHexById(txid: string) {
-	const res = await fetch(`${API_URL}/tx/${txid}/hex`);
-
-	if (!res.ok) throw new Error(await res.text());
-
-	return await res.text();
-}
-
-async function publishTransaction(hex: string) {
-	const res = await fetch(`${API_URL}/tx`, {
-		method: "POST",
-		body: hex,
-	});
-
-	if (!res.ok) throw new Error(await res.text());
-
-	return await res.text();
-}
-
-async function sleep(ms: number) {
-	return new Promise<void>((resolve) => setTimeout(resolve, ms));
-}
-
-async function retryWithDelay<T extends any>(
-	func: () => Promise<T>,
-	ms: number,
-	tries: number
-) {
-	let i = 0;
-
-	while (i < tries) {
-		try {
-			return await func();
-		} catch (error) {
-			await sleep(ms);
-		}
-		i++;
-	}
-
-	throw new Error(`Failed after ${tries} retries`);
-}
 
 describe.each<CreateBitcoinMultisigTableElement>(createBitcoinMultisigTableElements)(
   "createBitcoinMultisig test with $parts parts, $arbitrators arbitrators, arbitrators quorum of $arbitratorsQuorum and withTweak as $withTweak",
