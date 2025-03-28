@@ -19,6 +19,7 @@
 		"ecpair": "^2.1.0",
 		"liquidjs-lib": "6.0.2-liquid.32",
 		"pls-core": "workspace:*",
+		"pls-bitcoin": "workspace:*",
 		"tiny-secp256k1": "^2.2.3",
 		"zod": "^3.22.4"
 	},
