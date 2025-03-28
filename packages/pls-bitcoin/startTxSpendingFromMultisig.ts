@@ -14,19 +14,32 @@ export interface UTXO {
 	value: number;
 }
 
-export async function startTxSpendingFromMultisig(
-	multisig: payments.Payment,
-	redeemOutput: string,
-	signer: ECPairInterface,
-	network: Network,
-	receivingAddresses: {
-		address: string;
-		value: number;
-	}[],
-	utxos: UTXO[],
-	locktime?: number,
-	tweak?: Buffer,
-) {
+export interface ReceivingAddress {
+	address: string;
+	value: number;
+}
+
+type StartTxSpendingFromMultisigArgs = {
+	multisig: payments.Payment;
+	redeemOutput: string;
+	signer: ECPairInterface;
+	network: Network;
+	receivingAddresses: ReceivingAddress[];
+	utxos: UTXO[];
+	locktime?: number;
+	tweak?: Buffer;
+}
+
+export async function startTxSpendingFromMultisig({
+	multisig,
+	redeemOutput,
+	signer,
+	network,
+	receivingAddresses,
+	utxos,
+	locktime,
+	tweak,
+}: StartTxSpendingFromMultisigArgs) {
 	const multisigRedeem = {
 		output: Buffer.from(redeemOutput, "hex"),
 		redeemVersion: 192,

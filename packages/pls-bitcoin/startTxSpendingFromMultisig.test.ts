@@ -95,21 +95,20 @@ describe.each([
           value: output.value,
         }));
 
-        const psbt = await startTxSpendingFromMultisig(
-          multisig.multisig,
-          script!.leaf.output.toString("hex"),
-          partsEcpairs[0]!,
+        const psbt = await startTxSpendingFromMultisig({
+          multisig: multisig.multisig,
+          redeemOutput: script!.leaf.output.toString("hex"),
+          signer: partsEcpairs[0]!,
           network,
-          [
+          receivingAddresses: [
             {
               address: firstEcpairAddress.address!,
               value: balanceToSpend,
-            },
+            }
           ],
           utxos,
-          undefined,
-          withTweak ? tweak : undefined,
-        );
+          tweak: withTweak ? tweak : undefined,
+        });
 
         const tweakedSecondEcpair = withTweak ? (() => {
           const tweaker = createKeyTweaker({
