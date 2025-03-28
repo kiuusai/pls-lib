@@ -134,6 +134,9 @@ importers:
       liquidjs-lib:
         specifier: 6.0.2-liquid.32
         version: 6.0.2-liquid.32
+      pls-bitcoin:
+        specifier: workspace:*
+        version: link:../pls-bitcoin
       pls-core:
         specifier: workspace:*
         version: link:../pls-core
