@@ -21,44 +21,30 @@ type CreateBitcoinMultisigTableElement = {
   parts: number;
   arbitrators: number;
   arbitratorsQuorum: number;
-  withTweak: boolean;
 }
 
 const randomArbitrators = faker.number.int({ min: 1, max: 5 });
 const randomArbitratorsQuorum = faker.number.int({ min: 1, max: randomArbitrators });
 
-const createBitcoinMultisigTableElementsWithoutTweak = [
+const createBitcoinMultisigTableElements = [
   {
     parts: 2,
     arbitrators: 1,
     arbitratorsQuorum: 1,
-    withTweak: false,
   },
   {
     parts: 2,
     arbitrators: randomArbitrators,
     arbitratorsQuorum: randomArbitratorsQuorum,
-    withTweak: false,
   },
 ];
 
-const createBitcoinMultisigTableElementsWithTweak = createBitcoinMultisigTableElementsWithoutTweak.map(el => ({
-  ...el,
-  withTweak: true,
-}));
-
-const createBitcoinMultisigTableElements = [
-  ...createBitcoinMultisigTableElementsWithoutTweak,
-  ...createBitcoinMultisigTableElementsWithTweak,
-];
-
 describe.each<CreateBitcoinMultisigTableElement>(createBitcoinMultisigTableElements)(
-  "createBitcoinMultisig test with $parts parts, $arbitrators arbitrators, arbitrators quorum of $arbitratorsQuorum and withTweak as $withTweak",
+  "createBitcoinMultisig test with $parts parts, $arbitrators arbitrators, arbitrators quorum of $arbitratorsQuorum",
   async ({
     parts,
     arbitrators,
     arbitratorsQuorum,
-    withTweak,
   }) => {
     const partsEcpairs = new Array(parts).fill(null).map(() => ECPair.makeRandom());
     const arbitratorsEcpairs = new Array(arbitrators).fill(null).map(() => ECPair.makeRandom());
@@ -83,17 +69,17 @@ describe.each<CreateBitcoinMultisigTableElement>(createBitcoinMultisigTableEleme
         publicArbitratorsECPairs: arbitratorsEcpairs,
         arbitratorsQuorum,
         network,
-        tweak: withTweak ? tweak : undefined,
+        tweak,
       });
 
-      const tweakedChildNodesCombinations = withTweak ? childNodesCombinations.map((childNodes) => childNodes.map((childNode) => {
+      const tweakedChildNodesCombinations = childNodesCombinations.map((childNodes) => childNodes.map((childNode) => {
         const keyTweaker = createKeyTweaker({
           pubkey: childNode.publicKey,
           privkey: childNode.privateKey,
         });
 
         return keyTweaker.tweakEcpair(tweak);
-      })) : childNodesCombinations;
+      }));
 
       const multisigAsms = tweakedChildNodesCombinations.map(
         (childNodes) => childNodes.map((childNode) => toXOnly(childNode.publicKey).toString("hex"))
@@ -137,7 +123,7 @@ describe.each<CreateBitcoinMultisigTableElement>(createBitcoinMultisigTableEleme
           publicArbitratorsECPairs: arbitratorsEcpairs,
           arbitratorsQuorum,
           network,
-          tweak: withTweak ? tweak : undefined,
+          tweak,
         });
 
         const inputTransactionId = await takeFromFaucet(multisig.multisig.address!);
@@ -150,14 +136,14 @@ describe.each<CreateBitcoinMultisigTableElement>(createBitcoinMultisigTableEleme
 
         const inputTransaction = bitcoin.Transaction.fromHex(inputTransactionHex);
 
-        const tweakedSelectedCombination = withTweak ? selectedCombination.map(ecpair => {
+        const tweakedSelectedCombination = selectedCombination.map(ecpair => {
           const tweaker = createKeyTweaker({
             pubkey: ecpair.publicKey,
             privkey: ecpair.privateKey,
           });
 
           return tweaker.tweakEcpair(tweak);
-        }) : selectedCombination;
+        });
 
         const script = multisig.multisigScripts.find(
           ({ combination }) => tweakedSelectedCombination.every(

@@ -15,7 +15,7 @@ type CreateBitcoinMultisigArgs = {
 	publicArbitratorsECPairs: ECPairInterface[];
 	arbitratorsQuorum: number;
 	network: Network;
-	tweak?: Buffer;
+	tweak: Buffer;
 }
 
 export function createBitcoinMultisig({
@@ -35,14 +35,14 @@ export function createBitcoinMultisig({
 		...eachChildNodeWithArbitratorsQuorum,
 	];
 
-	const tweakedChildNodesCombinations = tweak !== undefined ? childNodesCombinations.map((childNodes) => childNodes.map((childNode) => {
+	const tweakedChildNodesCombinations = childNodesCombinations.map((childNodes) => childNodes.map((childNode) => {
 		const keyTweaker = createKeyTweaker({
 			pubkey: childNode.publicKey,
 			privkey: childNode.privateKey,
 		});
 
 		return keyTweaker.tweakEcpair(tweak);
-	})) : childNodesCombinations;
+	}));
 
 	const multisigAsms = tweakedChildNodesCombinations.map(
 		(childNodes) =>

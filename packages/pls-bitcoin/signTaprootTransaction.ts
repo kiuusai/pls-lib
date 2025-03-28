@@ -5,7 +5,7 @@ import { createKeyTweaker } from "./createKeyTweaker.js";
 type SignTaprootTransactionArgs = {
   psbt: Psbt;
   signer: ECPairInterface;
-  tweak?: Buffer;
+  tweak: Buffer;
 }
 
 export async function signTaprootTransaction({
@@ -13,14 +13,14 @@ export async function signTaprootTransaction({
   signer,
   tweak,
 }: SignTaprootTransactionArgs) {
-  const tweakedSigner = tweak ? (() => {
+  const tweakedSigner = (() => {
     const tweaker = createKeyTweaker({
       pubkey: signer.publicKey,
       privkey: signer.privateKey,
     });
 
     return tweaker.tweakEcpair(tweak);
-  })() : signer;
+  })();
 
   await psbt.signAllInputsAsync(tweakedSigner);
 

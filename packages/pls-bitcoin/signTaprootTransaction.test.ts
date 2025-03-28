@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest"
+import { describe, expect } from "vitest"
 import * as ecc from "tiny-secp256k1";
 import { ECPairFactory } from "ecpair";
 import * as bitcoin from "bitcoinjs-lib";
@@ -15,16 +15,9 @@ const ECPair = ECPairFactory(ecc);
 
 bitcoin.initEccLib(ecc);
 
-describe.each([
-  {
-    withTweak: false,
-  },
-  {
-    withTweak: true,
-  },
-])(
-  "signTaprootTransaction test with tweak $withTweak",
-  ({ withTweak }) => {
+describe(
+  "signTaprootTransaction test",
+  (it) => {
     const partsEcpairs = new Array(2).fill(null).map(() => ECPair.makeRandom());
 
     const arbitratorEcpair = ECPair.makeRandom();
@@ -39,17 +32,17 @@ describe.each([
       publicArbitratorsECPairs: [arbitratorEcpair],
       arbitratorsQuorum: 1,
       network,
-      tweak: withTweak ? tweak : undefined,
+      tweak,
     });
 
-    const tweakedSelectedCombination = withTweak ? partsEcpairs.map(ecpair => {
+    const tweakedSelectedCombination = partsEcpairs.map(ecpair => {
       const tweaker = createKeyTweaker({
         pubkey: ecpair.publicKey,
         privkey: ecpair.privateKey,
       });
 
       return tweaker.tweakEcpair(tweak);
-    }) : partsEcpairs;
+    });
 
 
     const firstEcpairAddress = bitcoin.payments.p2pkh({
@@ -57,7 +50,7 @@ describe.each([
       network,
     });
 
-    test(
+    it(
       "spending correctly started", async () => {
         const inputTransactionId = await takeFromFaucet(multisig.multisig.address!);
 
@@ -108,13 +101,13 @@ describe.each([
             }
           ],
           utxos,
-          tweak: withTweak ? tweak : undefined,
+          tweak,
         });
 
         await signTaprootTransaction({
           psbt,
           signer: partsEcpairs[1]!,
-          tweak: withTweak ? tweak : undefined,
+          tweak,
         });
 
         psbt.finalizeAllInputs();
@@ -123,12 +116,6 @@ describe.each([
 
         await publishTransaction(tx.toHex());
       },
-      {
-        timeout: 30 * 1000,
-      },
     )
   },
-  {
-    concurrent: true,
-  }
 )

@@ -27,7 +27,7 @@ type StartTxSpendingFromMultisigArgs = {
 	receivingAddresses: ReceivingAddress[];
 	utxos: UTXO[];
 	locktime?: number;
-	tweak?: Buffer;
+	tweak: Buffer;
 }
 
 export async function startTxSpendingFromMultisig({
@@ -76,14 +76,14 @@ export async function startTxSpendingFromMultisig({
 
 	psbt.addOutputs(receivingAddresses);
 
-	const tweakedSigner = tweak ? (() => {
+	const tweakedSigner = (() => {
 		const tweaker = createKeyTweaker({
 			pubkey: signer.publicKey,
 			privkey: signer.privateKey,
 		});
 
 		return tweaker.tweakEcpair(tweak);
-	})() : signer;
+	})();
 
 	await psbt.signAllInputsAsync(tweakedSigner);
 
