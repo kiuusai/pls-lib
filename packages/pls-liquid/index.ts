@@ -12,11 +12,11 @@ import {
 	bip341,
 } from "liquidjs-lib";
 
+import { createKeyTweaker } from "pls-bitcoin";
+
 import { Buffer } from "buffer";
 
-import { ECPairFactory } from "ecpair";
-
-const ECPair = ECPairFactory(ecc);
+import { ECPairInterface } from "ecpair";
 
 import {
 	Creator as PsetCreator,
@@ -79,26 +79,39 @@ const combine = <T>(items: Array<T>, size: number): Array<Array<T>> => {
 	return intCombine([], items, size).flat(size - 1);
 };
 
-// super secret blinding key lol
-const blindingKeypair = ECPair.fromPrivateKey(
-	Buffer.from(
-		"0000000000000000000000000000000000000000000000000000000000000001",
-		"hex"
-	)
-);
+type CreateLiquidMultisigArgs = {
+	parts: string[];
+	arbitrators: string[];
+	arbitratorsQuorum: number;
+	network: networks.Network;
+	internalPublicKey?: Buffer;
+	blindingKeypair: ECPairInterface;
+	tweak: Buffer;
+}
 
-export function createLiquidMultisig(
-	parts: string[],
-	arbitrators: string[],
-	arbitratorsQuorum: number,
-	network: networks.Network,
-	internalPublicKey = H
-) {
+export function createLiquidMultisig({
+	parts,
+	arbitrators,
+	arbitratorsQuorum,
+	network,
+	internalPublicKey = H,
+	blindingKeypair,
+	tweak,
+}: CreateLiquidMultisigArgs) {
 	const eachChildNodeWithArbitratorsQuorum = parts
 		.map((p) => combine(arbitrators, arbitratorsQuorum).map((a) => [p, ...a]))
 		.flat(1);
 	const childNodesCombinations = [parts, ...eachChildNodeWithArbitratorsQuorum];
-	const multisigAsms = childNodesCombinations.map(
+
+	const tweakedChildNodesCombinations = childNodesCombinations.map((childNodes) => childNodes.map((childNode) => {
+		const tweaker = createKeyTweaker({
+			pubkey: Buffer.from(childNode, "hex"),
+		});
+
+		return tweaker.tweakPubkey(tweak).toString("hex");
+	}));
+
+	const multisigAsms = tweakedChildNodesCombinations.map(
 		(childNodes) =>
 			childNodes
 				.map((childNode) =>
@@ -116,7 +129,7 @@ export function createLiquidMultisig(
 			// when building Taptree, prioritize parts agreement script (shortest path), using 1 for parts script and 5 for scripts with arbitrators
 			weight: idx ? 1 : 5,
 			leaf: { output: bitcoinscript.fromASM(ma) },
-			combination: childNodesCombinations[idx]!,
+			combination: tweakedChildNodesCombinations[idx]!,
 		};
 	});
 
@@ -145,25 +158,37 @@ export function createLiquidMultisig(
 	};
 }
 
-export async function startSpendFromLiquidMultisig(
-	hashTree: HashTree,
-	redeemOutput: string,
+type ReceivingAddress = {
+	address: string;
+	value: number;
+}
+
+type StartSpendFromLiquidMultisigArgs = {
+	hashTree: HashTree;
+	redeemOutput: string;
 	utxos: {
 		txid: string;
 		hex: string;
 		vout: number;
 		value: number | undefined;
-	}[],
-	network: networks.Network,
-	signer: {
-		publicKey: Buffer;
-		signSchnorr(hash: Buffer): Promise<Buffer> | Buffer;
-	},
-	receivingAddresses: {
-		address: string;
-		value: number;
-	}[]
-) {
+	}[];
+	network: networks.Network;
+	signer: ECPairInterface;
+	receivingAddresses: ReceivingAddress[];
+	tweak: Buffer;
+	blindingKeypair: ECPairInterface;
+}
+
+export async function startSpendFromLiquidMultisig({
+	hashTree,
+	redeemOutput,
+	utxos,
+	network,
+	signer,
+	receivingAddresses,
+	tweak,
+	blindingKeypair,
+}: StartSpendFromLiquidMultisigArgs) {
 	const bip341API = bip341.BIP341Factory(zkpLib.ecc);
 
 	const pset = PsetCreator.newPset();
@@ -181,7 +206,10 @@ export async function startSpendFromLiquidMultisig(
 
 	const unblindedUtxos = usedUtxos;
 
-	const balance = getUnblindedUtxoValues(utxos).reduce(
+	const balance = getUnblindedUtxoValues({
+		utxos,
+		blindingKeypair,
+	}).reduce(
 		(acc: number, value) => acc + (value ?? 0),
 		0
 	);
@@ -256,16 +284,28 @@ export async function startSpendFromLiquidMultisig(
 	);
 	blinder.blindLast({ outputBlindingArgs });
 
-	await signTaprootTransaction(pset, signer, leafHash, network);
+	await signTaprootTransaction({
+		pset,
+		keypair: signer,
+		leafHash,
+		network,
+		tweak,
+	});
 
 	return pset;
 }
 
-export function finalizeTxSpendingFromLiquidMultisig(
-	pset: Pset,
-	clientSigs: (Buffer | null)[],
-	arbitratorSigs: (Buffer | null)[]
-) {
+type FinalizeTxSpendingFromLiquidMultisigArgs = {
+	pset: Pset;
+	clientSigs: (Buffer | null)[];
+	arbitratorSigs: (Buffer | null)[];
+}
+
+export function finalizeTxSpendingFromLiquidMultisig({
+	pset,
+	clientSigs,
+	arbitratorSigs,
+}: FinalizeTxSpendingFromLiquidMultisigArgs) {
 	const finalizer = new PsetFinalizer(pset);
 
 	pset.inputs.forEach((_, index) => {
@@ -308,16 +348,41 @@ export function finalizeTxSpendingFromLiquidMultisig(
 	return PsetExtractor.extract(pset);
 }
 
-export function getUnblindedUtxoValues(
-	utxos: { value?: number; vout: number; hex: string }[]
-) {
-	return utxos.map(getUnblindedUtxoValue);
+type GetUnblindedUtxoValues = {
+	utxos: {
+		value?: number;
+		vout: number;
+		hex: string;
+	}[];
+	blindingKeypair: ECPairInterface;
 }
 
-export function getUnblindedUtxoValue(
-	utxo: { value?: number; vout: number; hex: string },
-	index = 0
-) {
+export function getUnblindedUtxoValues({
+	utxos,
+	blindingKeypair,
+}: GetUnblindedUtxoValues) {
+	return utxos.map((utxo, index) => getUnblindedUtxoValue({
+		utxo,
+		index,
+		blindingKeypair,
+	}));
+}
+
+type GetUmblindedUtxoValue = {
+	utxo: {
+		value?: number;
+		vout: number;
+		hex: string;
+	};
+	index?: number;
+	blindingKeypair: ECPairInterface;
+}
+
+export function getUnblindedUtxoValue({
+	utxo,
+	index = 0,
+	blindingKeypair,
+}: GetUmblindedUtxoValue) {
 	if (utxo.value) {
 		return utxo.value;
 	} else {
@@ -368,16 +433,23 @@ function taprootOutputScript(
 	return Buffer.concat([Buffer.from([0x51, 0x20]), xOnlyPubkey]);
 }
 
-export async function signTaprootTransaction(
-	pset: Pset,
-	keypair: {
-		publicKey: Buffer;
-		signSchnorr(hash: Buffer): Promise<Buffer> | Buffer;
-	},
-	leafHash: Buffer,
-	network: networks.Network,
-	sighashType: number = Transaction.SIGHASH_ALL
-) {
+type SignTaprootTransactionArgs = {
+	pset: Pset;
+	keypair: ECPairInterface;
+	leafHash: Buffer;
+	network: networks.Network;
+	sighashType?: number;
+	tweak: Buffer;
+}
+
+export async function signTaprootTransaction({
+	pset,
+	keypair,
+	leafHash,
+	network,
+	sighashType = Transaction.SIGHASH_ALL,
+	tweak,
+}: SignTaprootTransactionArgs) {
 	const signer = new PsetSigner(pset);
 
 	await Promise.all(
@@ -391,13 +463,22 @@ export async function signTaprootTransaction(
 				leafHash
 			);
 
-			const sig = await keypair.signSchnorr(sighashmsg);
+			const tweakedKeypair = (() => {
+				const tweaker = createKeyTweaker({
+					pubkey: keypair.publicKey,
+					privkey: keypair.privateKey,
+				});
+
+				return tweaker.tweakEcpair(tweak);
+			})()
+
+			const sig = tweakedKeypair.signSchnorr(sighashmsg);
 
 			const taprootData = {
 				tapScriptSigs: [
 					{
 						signature: serializeSchnnorrSig(Buffer.from(sig), hashType),
-						pubkey: keypair.publicKey.slice(1),
+						pubkey: tweakedKeypair.publicKey.slice(1),
 						leafHash,
 					},
 				],
@@ -415,19 +496,47 @@ const serializeSchnnorrSig = (sig: Buffer, hashtype: number) =>
 		hashtype !== 0x00 ? Buffer.of(hashtype) : Buffer.alloc(0),
 	]);
 
-export function getTapscriptSigsOrdered(
-	pset: Pset,
-	clientPubkeys: string[],
-	arbitratorPubkeys: string[]
-) {
-	const clientSigs = clientPubkeys.map(
+type GetTapscriptSigsOrderedArgs = {
+	pset: Pset;
+	clientPubkeys: string[];
+	arbitratorPubkeys: string[];
+	tweak: Buffer;
+}
+
+export function getTapscriptSigsOrdered({
+	pset,
+	clientPubkeys,
+	arbitratorPubkeys,
+	tweak,
+}: GetTapscriptSigsOrderedArgs) {
+	const tweakedClientPubkeys = clientPubkeys.map((pubkey) => {
+		const tweaker = createKeyTweaker({
+			pubkey: Buffer.from(pubkey, "hex"),
+		});
+
+		const tweakedPubkey = toXOnly(tweaker.tweakPubkey(tweak));
+
+		return tweakedPubkey.toString("hex");
+	});
+
+	const clientSigs = tweakedClientPubkeys.map(
 		(pubkey) =>
 			pset.inputs[0]!.tapScriptSig!.find(
 				(sig) => sig.pubkey.toString("hex") === pubkey
 			)?.signature ?? null
 	);
 
-	const arbitratorSigs = arbitratorPubkeys.map(
+	const tweakedArbitratorPubkeys = arbitratorPubkeys.map((pubkey) => {
+		const tweaker = createKeyTweaker({
+			pubkey: Buffer.from(pubkey, "hex"),
+		});
+
+		const tweakedPubkey = toXOnly(tweaker.tweakPubkey(tweak));
+
+		return tweakedPubkey.toString("hex");
+	})
+
+	const arbitratorSigs = tweakedArbitratorPubkeys.map(
 		(pubkey) =>
 			pset.inputs[0]!.tapScriptSig!.find(
 				(sig) => sig.pubkey.toString("hex") === pubkey
