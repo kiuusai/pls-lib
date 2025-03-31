@@ -1,9 +1,9 @@
-import { afterEach, describe, expect } from "vitest";
+import { describe, expect } from "vitest";
 import {
 	createLiquidMultisig,
 	finalizeTxSpendingFromLiquidMultisig,
 	getTapscriptSigsOrdered,
-	signTaprootTransaction,
+	signLiquidTaprootTransaction,
 	startSpendFromLiquidMultisig,
 } from "./index.js";
 import { ECPairFactory, ECPairInterface } from "ecpair";
@@ -166,7 +166,7 @@ async function testMultisigWithParameters({
 
 	await Promise.all(
 		usedKeysCombination.slice(1).map(async (keypair) => {
-			await signTaprootTransaction({
+			await signLiquidTaprootTransaction({
 				pset,
 				keypair,
 				leafHash: bip341.tapLeafHash({

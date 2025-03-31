@@ -8,7 +8,7 @@ type SignTaprootTransactionArgs = {
   tweak: Buffer;
 }
 
-export async function signTaprootTransaction({
+export async function signBitcoinTaprootTransaction({
   psbt,
   signer,
   tweak,

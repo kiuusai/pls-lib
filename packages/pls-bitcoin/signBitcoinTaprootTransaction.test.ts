@@ -9,14 +9,14 @@ import {
   getTransactionHexById,
   publishTransaction,
 } from "./utils/test.js"
-import { signTaprootTransaction } from "./signTaprootTransaction.js";
+import { signBitcoinTaprootTransaction } from "./signBitcoinTaprootTransaction.js";
 
 const ECPair = ECPairFactory(ecc);
 
 bitcoin.initEccLib(ecc);
 
 describe(
-  "signTaprootTransaction test",
+  "signBitcoinTaprootTransaction test",
   (it) => {
     const partsEcpairs = new Array(2).fill(null).map(() => ECPair.makeRandom());
 
@@ -104,7 +104,7 @@ describe(
           tweak,
         });
 
-        await signTaprootTransaction({
+        await signBitcoinTaprootTransaction({
           psbt,
           signer: partsEcpairs[1]!,
           tweak,

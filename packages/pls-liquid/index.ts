@@ -284,7 +284,7 @@ export async function startSpendFromLiquidMultisig({
 	);
 	blinder.blindLast({ outputBlindingArgs });
 
-	await signTaprootTransaction({
+	await signLiquidTaprootTransaction({
 		pset,
 		keypair: signer,
 		leafHash,
@@ -442,7 +442,7 @@ type SignTaprootTransactionArgs = {
 	tweak: Buffer;
 }
 
-export async function signTaprootTransaction({
+export async function signLiquidTaprootTransaction({
 	pset,
 	keypair,
 	leafHash,
