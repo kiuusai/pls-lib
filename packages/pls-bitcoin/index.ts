@@ -1,7 +1,7 @@
 import { createKeyTweaker } from "./createKeyTweaker.js";
 import { createBitcoinMultisig } from "./createBitcoinMultisig.js";
 import { startTxSpendingFromMultisig } from "./startTxSpendingFromMultisig.js";
-import { signTaprootTransaction } from "./signTaprootTransaction.js";
+import { signBitcoinTaprootTransaction } from "./signBitcoinTaprootTransaction.js";
 import { combine, H, bitcoinSchemas } from "./utils/index.js"
 
 export {
@@ -11,7 +11,7 @@ export {
 
 	startTxSpendingFromMultisig,
 
-	signTaprootTransaction,
+	signBitcoinTaprootTransaction,
 
 	combine,
 	H,
