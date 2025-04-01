@@ -11,7 +11,7 @@ import {
 	payments,
 	Transaction,
 } from "liquidjs-lib";
-import { combine, H, toReversed } from "./utils/index.js"
+import { combine, H, toReversed, zkpLib } from "./utils/index.js"
 import { createKeyTweaker } from "pls-bitcoin/createKeyTweaker.js";
 import { toXOnly } from "bitcoinjs-lib/src/psbt/bip371.js";
 import { script as bitcoinscript } from "bitcoinjs-lib";
@@ -22,7 +22,6 @@ import {
 	publishTransaction,
 } from "./utils/test.js"
 import { serializeSchnnorrSig } from "./utils/index.js";
-import secp256k1 from "@vulpemventures/secp256k1-zkp";
 import {
   CreatorOutput,
 	Blinder as PsetBlinder,
@@ -36,9 +35,6 @@ import {
 } from "liquidjs-lib/src/psetv2";
 import { ZKPGenerator, ZKPValidator } from "./myZKP.js";
 import { faker } from "@faker-js/faker";
-
-// @ts-expect-error I have no idea
-const zkpLib: secp256k1 = await secp256k1();
 
 const ECPair = ECPairFactory(ecc);
 
@@ -221,7 +217,6 @@ describe.each([
 
 				const unblindedUtxos = inputTxOutputs.map((output) => ({
 					txid: inputTransactionId,
-					hex: inputTransactionHex,
 					txIndex: output.vout,
 					witnessUtxo: Transaction.fromHex(inputTransactionHex).outs[output.vout]!,
 					sighashType: Transaction.SIGHASH_ALL,

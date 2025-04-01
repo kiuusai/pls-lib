@@ -43,7 +43,6 @@ describe(
       return tweaker.tweakEcpair(tweak);
     });
 
-
     const firstEcpairAddress = bitcoin.payments.p2pkh({
       pubkey: partsEcpairs[0]!.publicKey,
       network,

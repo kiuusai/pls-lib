@@ -2,7 +2,7 @@ import { bip341, crypto } from "liquidjs-lib";
 import secp256k1 from "@vulpemventures/secp256k1-zkp/lib/index.js";
 
 // @ts-expect-error I have no idea
-const zkpLib: secp256k1 = await secp256k1();
+export const zkpLib: secp256k1 = await secp256k1();
 
 export const combine = <T>(items: Array<T>, size: number): Array<Array<T>> => {
 	const intCombine = (
