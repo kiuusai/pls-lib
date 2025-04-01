@@ -8,7 +8,6 @@ import {
 	payments,
 	confidential,
 	script,
-	crypto,
 	bip341,
 } from "liquidjs-lib";
 
@@ -34,11 +33,24 @@ import { ZKPGenerator, ZKPValidator } from "./myZKP.js";
 
 import * as ecc from "tiny-secp256k1";
 
-import secp256k1 from "@vulpemventures/secp256k1-zkp/lib/index.js";
+import secp256k1 from "@vulpemventures/secp256k1-zkp";
 
 import { toXOnly } from "bitcoinjs-lib/src/psbt/bip371.js";
 import type { HashTree } from "liquidjs-lib/src/bip341.js";
-import { script as bitcoinscript } from "bitcoinjs-lib";
+
+import { createLiquidMultisig } from "./createLiquidMultisig.js";
+
+import {
+	H,
+	serializeSchnnorrSig,
+    toReversed,
+} from "./utils/index.js"
+
+export {
+	createLiquidMultisig,
+
+	H,
+}
 
 const TaprootV0CollateralSchema = {
 	arbitratorsQuorum: z.number(),
@@ -63,100 +75,6 @@ export const liquidSchemas = {
 const zkpLib: secp256k1 = await secp256k1();
 
 export const Confidential = new confidential.Confidential(zkpLib);
-
-const combine = <T>(items: Array<T>, size: number): Array<Array<T>> => {
-	const intCombine = (
-		acc: Array<T>,
-		rem: Array<T>,
-		curr: number
-	): Array<any> => {
-		if (curr === 0) return acc;
-		return rem.map((i, idx) => {
-			return intCombine([...acc, i], rem.slice(idx + 1), curr - 1);
-		});
-	};
-
-	return intCombine([], items, size).flat(size - 1);
-};
-
-type CreateLiquidMultisigArgs = {
-	parts: string[];
-	arbitrators: string[];
-	arbitratorsQuorum: number;
-	network: networks.Network;
-	internalPublicKey?: Buffer;
-	blindingKeypair: ECPairInterface;
-	tweak: Buffer;
-}
-
-export function createLiquidMultisig({
-	parts,
-	arbitrators,
-	arbitratorsQuorum,
-	network,
-	internalPublicKey = H,
-	blindingKeypair,
-	tweak,
-}: CreateLiquidMultisigArgs) {
-	const eachChildNodeWithArbitratorsQuorum = parts
-		.map((p) => combine(arbitrators, arbitratorsQuorum).map((a) => [p, ...a]))
-		.flat(1);
-	const childNodesCombinations = [parts, ...eachChildNodeWithArbitratorsQuorum];
-
-	const tweakedChildNodesCombinations = childNodesCombinations.map((childNodes) => childNodes.map((childNode) => {
-		const tweaker = createKeyTweaker({
-			pubkey: Buffer.from(childNode, "hex"),
-		});
-
-		return tweaker.tweakPubkey(tweak).toString("hex");
-	}));
-
-	const multisigAsms = tweakedChildNodesCombinations.map(
-		(childNodes) =>
-			childNodes
-				.map((childNode) =>
-					toXOnly(Buffer.from(childNode, "hex")).toString("hex")
-				)
-				.map(
-					(pubkey, idx) =>
-						pubkey + " " + (idx ? "OP_CHECKSIGADD" : "OP_CHECKSIG")
-				)
-				.join(" ") + ` OP_${childNodes.length} OP_NUMEQUAL`
-	);
-
-	const multisigScripts = multisigAsms.map((ma, idx) => {
-		return {
-			// when building Taptree, prioritize parts agreement script (shortest path), using 1 for parts script and 5 for scripts with arbitrators
-			weight: idx ? 1 : 5,
-			leaf: { output: bitcoinscript.fromASM(ma) },
-			combination: tweakedChildNodesCombinations[idx]!,
-		};
-	});
-
-	const hashTree = bip341.toHashTree(
-		multisigScripts.map(({ leaf }) => ({
-			scriptHex: leaf.output.toString("hex"),
-		})),
-		true
-	);
-
-	const scriptPubKey = taprootOutputScript(internalPublicKey, hashTree);
-
-	const address = Address.fromOutputScript(scriptPubKey, network);
-
-	return {
-		address,
-		confidentialAddress: Address.toConfidential(
-			address,
-			blindingKeypair.publicKey
-		),
-		multisigScripts,
-		hashTree,
-		leaves: multisigScripts.map((script) => ({
-			scriptHex: script.leaf.output.toString("hex"),
-		})),
-	};
-}
 
 type ReceivingAddress = {
 	address: string;
@@ -401,38 +319,6 @@ export function getUnblindedUtxoValue({
 	}
 }
 
-// @ionio-lang/ionio
-export const H: Buffer = Buffer.from(
-	"0250929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0",
-	"hex"
-);
-
-export function tweakPublicKey(
-	publicKey: Buffer,
-	hash: Buffer,
-	ecc = zkpLib.ecc
-): bip341.XOnlyPointAddTweakResult {
-	const XOnlyPubKey = publicKey.slice(1, 33);
-	const toTweak = Buffer.concat([XOnlyPubKey, hash]);
-	const tweakHash = crypto.taggedHash("TapTweak/elements", toTweak);
-	const tweaked = ecc.xOnlyPointAddTweak(XOnlyPubKey, tweakHash);
-	if (!tweaked) throw new Error("Invalid tweaked key");
-	return tweaked;
-}
-
-// bip341API.taprootOutputScript
-function taprootOutputScript(
-	internalPublicKey: Buffer,
-	tree?: bip341.HashTree | undefined
-) {
-	let treeHash = Buffer.alloc(0);
-	if (tree) {
-		treeHash = tree.hash;
-	}
-	const { xOnlyPubkey } = tweakPublicKey(internalPublicKey, treeHash);
-	return Buffer.concat([Buffer.from([0x51, 0x20]), xOnlyPubkey]);
-}
-
 type SignTaprootTransactionArgs = {
 	pset: Pset;
 	keypair: ECPairInterface;
@@ -490,12 +376,6 @@ export async function signLiquidTaprootTransaction({
 	);
 }
 
-const serializeSchnnorrSig = (sig: Buffer, hashtype: number) =>
-	Buffer.concat([
-		sig,
-		hashtype !== 0x00 ? Buffer.of(hashtype) : Buffer.alloc(0),
-	]);
-
 type GetTapscriptSigsOrderedArgs = {
 	pset: Pset;
 	clientPubkeys: string[];
@@ -547,8 +427,4 @@ export function getTapscriptSigsOrdered({
 		clientSigs,
 		arbitratorSigs,
 	};
-}
-
-function toReversed<T>(arr: T[]): T[] {
-	return [...arr].reverse();
 }
