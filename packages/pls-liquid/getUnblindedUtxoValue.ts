@@ -1,6 +1,8 @@
 import { ECPairInterface } from "ecpair";
 import { Transaction, confidential } from "liquidjs-lib";
-import { zkpLib } from "./utils/index.js";
+import { getZkpLib } from "./utils/index.js";
+
+const zkpLib = await getZkpLib();
 
 const Confidential = new confidential.Confidential(zkpLib);
 

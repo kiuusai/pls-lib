@@ -11,7 +11,7 @@ import {
 	payments,
 	Transaction,
 } from "liquidjs-lib";
-import { combine, H, toReversed, zkpLib } from "./utils/index.js"
+import { combine, H, toReversed, getZkpLib } from "./utils/index.js"
 import { createKeyTweaker } from "pls-bitcoin/createKeyTweaker.js";
 import { toXOnly } from "bitcoinjs-lib/src/psbt/bip371.js";
 import { script as bitcoinscript } from "bitcoinjs-lib";
@@ -35,6 +35,8 @@ import {
 } from "liquidjs-lib/src/psetv2";
 import { ZKPGenerator, ZKPValidator } from "./myZKP.js";
 import { faker } from "@faker-js/faker";
+
+const zkpLib = await getZkpLib();
 
 const ECPair = ECPairFactory(ecc);
 

@@ -186,4 +186,5 @@ describe(
 			await publishTransaction(transaction.toHex());
 		})
 	},
+	{ timeout: 30 * 1000 },
 )

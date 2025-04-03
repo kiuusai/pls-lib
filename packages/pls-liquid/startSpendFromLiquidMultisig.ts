@@ -13,11 +13,13 @@ import {
 	Blinder as PsetBlinder,
 	Pset,
 } from "liquidjs-lib/src/psetv2";
-import { H, zkpLib } from "./utils/index.js" 
+import { H, getZkpLib } from "./utils/index.js" 
 import { getUnblindedUtxoValues } from "./getUnblindedUtxoValues.js";
 import { ZKPGenerator, ZKPValidator } from "./myZKP.js";
 import * as ecc from "tiny-secp256k1";
 import { signLiquidTaprootTransaction } from "./signLiquidTaprootTransaction.js";
+
+const zkpLib = await getZkpLib();
 
 type ReceivingAddress = {
 	address: string;

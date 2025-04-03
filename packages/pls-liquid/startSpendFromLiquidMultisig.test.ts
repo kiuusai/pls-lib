@@ -20,7 +20,7 @@ import {
 	publishTransaction,
 } from "./utils/test.js";
 import { startSpendFromLiquidMultisig } from "./startSpendFromLiquidMultisig.js";
-import { serializeSchnnorrSig, toReversed, zkpLib } from "./utils/index.js";
+import { serializeSchnnorrSig, toReversed, getZkpLib } from "./utils/index.js";
 
 import {
 	Signer as PsetSigner,
@@ -28,6 +28,8 @@ import {
 	Extractor as PsetExtractor,
 	witnessStackToScriptWitness,
 } from "liquidjs-lib/src/psetv2";
+
+const zkpLib = await getZkpLib();
 
 const ECPair = ECPairFactory(ecc);
 

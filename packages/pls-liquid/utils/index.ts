@@ -1,8 +1,13 @@
 import { bip341, crypto } from "liquidjs-lib";
-import secp256k1 from "@vulpemventures/secp256k1-zkp/lib/index.js";
+import secp256k1 from "@vulpemventures/secp256k1-zkp";
+import type { Secp256k1Interface } from "liquidjs-lib";
 
-// @ts-expect-error I have no idea
-export const zkpLib: secp256k1 = await secp256k1();
+export async function getZkpLib(): Promise<Secp256k1Interface> {
+	// @ts-ignore I have no idea
+	return await secp256k1();
+}
+
+const zkpLib = await getZkpLib();
 
 export const combine = <T>(items: Array<T>, size: number): Array<Array<T>> => {
 	const intCombine = (
