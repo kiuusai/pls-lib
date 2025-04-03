@@ -1,4 +1,4 @@
-import { describe, expect } from "vitest";
+import { describe, expect, test } from "vitest";
 import * as ecc from "tiny-secp256k1";
 import { ECPairFactory } from "ecpair";
 import {
@@ -15,19 +15,21 @@ import {
 	getTransactionHexById,
 	publishTransaction,
 } from "./utils/test.js";
+import { combine } from "./utils/index.js"
 import { createKeyTweaker } from "pls-bitcoin";
 import {
 	createLiquidMultisig,
 	startSpendFromLiquidMultisig,
 	signLiquidTaprootTransaction,
-  finalizeTxSpendingFromLiquidMultisig,
+	finalizeTxSpendingFromLiquidMultisig,
+	getTapscriptSigsOrdered,
 } from "./index.js";
 
 const ECPair = ECPairFactory(ecc);
 
 describe(
 	"finalizeTxSpendingFromLiquidMultisig test",
-	(it) => {
+	() => {
 		const partsEcpairs = new Array(2).fill(null).map(() => ECPair.makeRandom());
 
 		const arbitratorEcpair = ECPair.makeRandom();
@@ -54,14 +56,14 @@ describe(
 			arbitratorsQuorum,
 		});
 
-		const tweakedSelectedCombination = partsEcpairs.map((ecpair) => {
-			const tweaker = createKeyTweaker({
-				pubkey: ecpair.publicKey,
-				privkey: ecpair.privateKey,
-			});
+		const eachChildNodeWithArbitratorsQuorum = partsEcpairs.map(
+			(p) => combine([arbitratorEcpair], 1).map((a) => [p, ...a])
+		).flat(1);
 
-			return tweaker.tweakEcpair(tweak);
-		});
+		const childNodesCombinations = [
+			partsEcpairs,
+			...eachChildNodeWithArbitratorsQuorum,
+		];
 
 		const firstEcpairAddress = payments.p2pkh({
 			pubkey: partsEcpairs[0]!.publicKey,
@@ -73,7 +75,16 @@ describe(
 			blindingKeypair.publicKey,
 		);
 
-		it("spending correctly finalized", async () => {
+		test.each(childNodesCombinations)("spending correctly finalized test %#", async (...selectedCombination) => {
+			const tweakedSelectedCombination = selectedCombination.map((ecpair) => {
+				const tweaker = createKeyTweaker({
+					pubkey: ecpair.publicKey,
+					privkey: ecpair.privateKey,
+				});
+
+				return tweaker.tweakEcpair(tweak);
+			});
+
 			const inputTransactionId = await takeFromFaucet(multisig.confidentialAddress);
 
 			const inputTransactionHex = await retryWithDelay(
@@ -114,7 +125,7 @@ describe(
 					value: undefined,
 				})),
 				network,
-				signer: partsEcpairs[0]!,
+				signer: selectedCombination[0]!,
 				receivingAddresses: [
 					{
 						address: firstEcpairConfidentialAddress,
@@ -129,7 +140,7 @@ describe(
 
 			await signLiquidTaprootTransaction({
 				pset: pset!,
-				keypair: partsEcpairs[1]!,
+				keypair: selectedCombination[1]!,
 				leafHash: bip341.tapLeafHash({
 					scriptHex: redeemOutput,
 				}),
@@ -137,20 +148,20 @@ describe(
 				tweak,
 			});
 
-			const selectedCombinationSigs = tweakedSelectedCombination.map(
-				(pubkey) =>
-					pset!.inputs[0]!.tapScriptSig!.find(
-						(sig) => sig.pubkey.toString("hex") === pubkey.publicKey.toString("hex"),
-					)?.signature ?? null,
-			);
+			const { clientSigs, arbitratorSigs } = getTapscriptSigsOrdered({
+				pset: pset!,
+				clientPubkeys: parts,
+				arbitratorPubkeys: arbitrators,
+				tweak,
+			})
 
 			const transaction = finalizeTxSpendingFromLiquidMultisig({
 				pset: pset!,
-				clientSigs: selectedCombinationSigs,
-				arbitratorSigs: [null],
+				clientSigs,
+				arbitratorSigs,
 			});
 
 			await publishTransaction(transaction.toHex());
-		});
+		}, { concurrent: true, timeout: 30 * 1000 });
 	},
 )
