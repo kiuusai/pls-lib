@@ -8,7 +8,7 @@
 	"types": "./dist/index.d.ts",
 	"scripts": {
 		"dev": "npm run build -- --watch",
-		"build": "tsup index.ts --format cjs,esm --dts",
+		"build": "tsup index.ts --format esm --dts",
 		"test": "vitest",
 		"lint": "echo 'Add lint script here'"
 	},
