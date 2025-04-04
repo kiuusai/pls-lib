@@ -12,7 +12,7 @@ import {
 	Pset,
 } from "liquidjs-lib";
 import { createLiquidMultisig } from "./createLiquidMultisig.js";
-import { createKeyTweaker } from "pls-bitcoin/createKeyTweaker.js";
+import { createKeyTweaker } from "pls-bitcoin";
 import {
 	takeFromFaucet,
 	retryWithDelay,

@@ -7,7 +7,7 @@ import {
 import {
 	Signer as PsetSigner,
 } from "liquidjs-lib/src/psetv2";
-import { createKeyTweaker } from "pls-bitcoin/createKeyTweaker.js";
+import { createKeyTweaker } from "pls-bitcoin";
 import { serializeSchnnorrSig, getZkpLib } from "./utils/index.js";
 
 const zkpLib = await getZkpLib();

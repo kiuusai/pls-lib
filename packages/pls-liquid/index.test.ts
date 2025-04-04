@@ -10,7 +10,7 @@ import { ECPairFactory, ECPairInterface } from "ecpair";
 import { Pset, Transaction, address, bip341, networks, crypto } from "liquidjs-lib";
 
 import * as ecc from "tiny-secp256k1";
-import { createKeyTweaker } from "pls-bitcoin/createKeyTweaker.js";
+import { createKeyTweaker } from "pls-bitcoin";
 
 const ECPair = ECPairFactory(ecc);
 

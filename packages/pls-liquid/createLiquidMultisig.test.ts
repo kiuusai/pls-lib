@@ -12,7 +12,7 @@ import {
 	Transaction,
 } from "liquidjs-lib";
 import { combine, H, toReversed, getZkpLib } from "./utils/index.js"
-import { createKeyTweaker } from "pls-bitcoin/createKeyTweaker.js";
+import { createKeyTweaker } from "pls-bitcoin";
 import { toXOnly } from "bitcoinjs-lib/src/psbt/bip371.js";
 import { script as bitcoinscript } from "bitcoinjs-lib";
 import {

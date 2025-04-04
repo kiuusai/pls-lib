@@ -1,5 +1,5 @@
 import { Pset } from "liquidjs-lib";
-import { createKeyTweaker } from "pls-bitcoin/createKeyTweaker.js";
+import { createKeyTweaker } from "pls-bitcoin";
 import { toXOnly } from "bitcoinjs-lib/src/psbt/bip371.js";
 
 type GetTapscriptSigsOrderedArgs = {

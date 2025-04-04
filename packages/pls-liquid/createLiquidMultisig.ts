@@ -3,7 +3,7 @@ import {
 	bip341,
 	address as Address,
 } from "liquidjs-lib";
-import { createKeyTweaker } from "pls-bitcoin/createKeyTweaker.js";
+import { createKeyTweaker } from "pls-bitcoin";
 import { ECPairInterface } from "ecpair";
 import { H, combine, taprootOutputScript } from "./utils/index.js"
 import { toXOnly } from "bitcoinjs-lib/src/psbt/bip371.js";
