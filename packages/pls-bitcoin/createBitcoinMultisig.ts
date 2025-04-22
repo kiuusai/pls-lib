@@ -16,6 +16,7 @@ type CreateBitcoinMultisigArgs = {
 	arbitratorsQuorum: number;
 	network: Network;
 	tweak: Buffer;
+	internalPubkey?: Buffer;
 }
 
 export function createBitcoinMultisig({
@@ -24,6 +25,7 @@ export function createBitcoinMultisig({
 	arbitratorsQuorum,
 	network,
 	tweak,
+	internalPubkey = toXOnly(H),
 }: CreateBitcoinMultisigArgs) {
 	const eachChildNodeWithArbitratorsQuorum = publicPartsECPairs
 		.map((p) =>
@@ -60,14 +62,14 @@ export function createBitcoinMultisig({
 			// when building Taptree, prioritize parts agreement script (shortest path), using 1 for parts script and 5 for scripts with arbitrators
 			weight: idx ? 1 : 5,
 			leaf: { output: script.fromASM(ma) },
-			combination: tweakedChildNodesCombinations[idx]!,
+			combination: childNodesCombinations[idx]!,
 		};
 	});
 
 	const scriptTree: Taptree = sortScriptsIntoTree(multisigScripts)!;
 
 	const multisig = payments.p2tr({
-		internalPubkey: toXOnly(H),
+		internalPubkey,
 		scriptTree,
 		network,
 	});
