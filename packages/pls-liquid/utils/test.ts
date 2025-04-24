@@ -54,3 +54,19 @@ export async function retryWithDelay<T extends any>(
 
 	throw new Error(`Failed after ${tries} retries`);
 }
+
+export const permute = <T>(items: Array<T>): Array<Array<T>> => {
+	const intPermute = (arr: Array<T>, m: Array<T> = []): Array<Array<T>> => {
+		if (arr.length === 0) return [m];
+
+		let result: Array<Array<T>> = [];
+		for (let i = 0; i < arr.length; i++) {
+			const current = arr[i]!;
+			const remaining = arr.slice(0, i).concat(arr.slice(i + 1));
+			result = result.concat(intPermute(remaining, m.concat(current)));
+		}
+		return result;
+	};
+
+	return intPermute(items);
+}
