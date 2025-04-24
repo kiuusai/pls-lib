@@ -35,16 +35,6 @@ describe(
       tweak,
     });
 
-    const tweakedSelectedCombination = partsEcpairs.map(ecpair => {
-      const tweaker = createKeyTweaker({
-        pubkey: ecpair.publicKey,
-        privkey: ecpair.privateKey,
-      });
-
-      return tweaker.tweakEcpair(tweak);
-    });
-
-
     const firstEcpairAddress = bitcoin.payments.p2pkh({
       pubkey: partsEcpairs[0]!.publicKey,
       network,
@@ -63,7 +53,7 @@ describe(
         const inputTransaction = bitcoin.Transaction.fromHex(inputTransactionHex);
 
         const script = multisig.multisigScripts.find(
-          ({ combination }) => tweakedSelectedCombination.every(
+          ({ combination }) => partsEcpairs.every(
             (ecpair) => combination.map(combination => combination.publicKey.toString("hex"))
               .includes(ecpair.publicKey.toString("hex")),
           ),
