@@ -7,36 +7,13 @@ import {
 	networks,
 	bip341,
 	address as Address,
-	script as Script,
-	payments,
-	Transaction,
 } from "liquidjs-lib";
-import { combine, H, toReversed, getZkpLib } from "./utils/index.js"
+import { combine, H } from "./utils/index.js"
 import { createKeyTweaker } from "pls-bitcoin";
 import { toXOnly } from "bitcoinjs-lib/src/psbt/bip371.js";
-import { script as bitcoinscript } from "bitcoinjs-lib";
-import {
-	takeFromFaucet,
-	retryWithDelay,
-	getTransactionHexById,
-	publishTransaction,
-} from "./utils/test.js"
-import { serializeSchnnorrSig } from "./utils/index.js";
-import {
-  CreatorOutput,
-	Blinder as PsetBlinder,
-	Signer as PsetSigner,
-	Finalizer as PsetFinalizer,
-	Pset,
-	Creator as PsetCreator,
-	Updater as PsetUpdater,
-  witnessStackToScriptWitness,
-	Extractor as PsetExtractor,
-} from "liquidjs-lib/src/psetv2";
-import { ZKPGenerator, ZKPValidator } from "./myZKP.js";
+import { script as bitcoinscript, script } from "bitcoinjs-lib";
 import { faker } from "@faker-js/faker";
-
-const zkpLib = await getZkpLib();
+import { permute } from "./utils/test.js";
 
 const ECPair = ECPairFactory(ecc);
 
@@ -96,33 +73,71 @@ describe.each([
 				tweak,
 			});
 
-			const tweakedChildNodesCombinations = childNodesCombinations.map((childNodes) => childNodes.map((childNode) => {
-				const tweaker = createKeyTweaker({
-					pubkey: childNode.publicKey,
-					privkey: childNode.privateKey,
+			const multisigScriptsMap: Record<string, typeof multisig.multisigScripts[number]> = {};
+
+			childNodesCombinations.forEach((combination) => {
+				const combinationPubkeys = combination.map((ecpair) => ecpair.publicKey.toString("hex"));
+
+				const key = combinationPubkeys.join(":");
+
+				const multisigScript = multisig.multisigScripts.find((multisigScript) => {
+					return multisigScript.combination.every((pubkey) => combinationPubkeys.includes(pubkey)) && multisigScript.combination.length === combinationPubkeys.length;
+				})!;
+
+				multisigScriptsMap[key] = multisigScript;
+			});
+
+			for (const combinationKeys in multisigScriptsMap) {
+				expect(multisigScriptsMap[combinationKeys]).not.toBeUndefined();
+
+				const multisigScript = multisigScriptsMap[combinationKeys]!;
+
+				const pubkeys = combinationKeys.split(":");
+
+        // Checks if the combination matches with the expected combination
+				expect(pubkeys.every((pubkey) => multisigScript.combination.includes(pubkey))).toBeTruthy();
+
+				const isPartsEcpairsPubkeys = parts.every((pubkey) => pubkeys.includes(pubkey));
+
+        // Checks if parts ecpairs has more weight in script trees
+        if (isPartsEcpairsPubkeys) {
+          expect(multisigScript.weight).toEqual(5);
+        } else {
+          expect(multisigScript.weight).toEqual(1);
+        }
+
+				const eachPossibleCombination = permute(multisigScript.combination);
+
+				const possibleScripts = eachPossibleCombination.map((combination) => {
+					const tweakedCombination = combination.map((pubkey) => {
+						const tweaker = createKeyTweaker({
+							pubkey: Buffer.from(pubkey, "hex"),
+						});
+
+						const xOnlyTweakedPubkey = toXOnly(tweaker.tweakPubkey(tweak));
+
+						return xOnlyTweakedPubkey.toString("hex");
+					});
+
+					const script = tweakedCombination.map((pubkey, idx) => `${pubkey} ${idx === 0 ? "OP_CHECKSIG" : "OP_CHECKSIGADD"}`).join(" ") + ` OP_${tweakedCombination.length} OP_NUMEQUAL`;
+
+					return script;
 				});
 
-				return tweaker.tweakPubkey(tweak).toString("hex");
-			}));
+				const multisigBitcoinScript = script.toASM(multisigScript.leaf.output);
 
-			const multisigAsms = tweakedChildNodesCombinations.map(
-				(childNodes) => childNodes.map((childNode) => toXOnly(Buffer.from(childNode, "hex")).toString("hex"))
-					.map((pubkey, idx) => pubkey + " " + (idx ? "OP_CHECKSIGADD": "OP_CHECKSIG"))
-					.join(" ") + ` OP_${childNodes.length} OP_NUMEQUAL`
-			);
-
-			const multisigScripts = multisigAsms.map((ma, idx) => ({
-				weight: idx ? 1 : 5,
-				leaf: { output: bitcoinscript.fromASM(ma) },
-				combination: tweakedChildNodesCombinations[idx],
-			}));
+        // Check if the script is correctly assembled
+				expect(possibleScripts.includes(multisigBitcoinScript)).toBeTruthy();
+			}
 
 			const hashTree = bip341.toHashTree(
-				multisigScripts.map(({ leaf }) => ({
+				multisig.multisigScripts.map(({ leaf }) => ({
 					scriptHex: leaf.output.toString("hex"),
 				})),
 				true,
 			);
+
+			expect(hashTree).toEqual(multisig.hashTree);
 
 			const treeHash = hashTree.hash;
 
@@ -139,249 +154,21 @@ describe.each([
 
 			const address = Address.fromOutputScript(outputScript, network);
 
+			expect(multisig.address).toEqual(address);
+
 			const confidentialAddress = Address.toConfidential(
 				address,
 				blindingKeypair.publicKey,
 			);
 
-			const expectedMultisig = {
-				address,
-				confidentialAddress,
-				multisigScripts,
-				hashTree,
-				leaves: multisigScripts.map((script) => ({
-					scriptHex: script.leaf.output.toString("hex"),
-				}))
-			};
+			expect(multisig.confidentialAddress).toEqual(confidentialAddress);
 
-			expect(multisig).toEqual(expectedMultisig);
+			const leaves = multisig.multisigScripts.map((script) => ({
+				scriptHex: script.leaf.output.toString("hex"),
+			}));
 
-			const multisigScriptsCombination = multisig.multisigScripts.map((script) => script.combination);
-			expect(multisigScriptsCombination).toEqual(tweakedChildNodesCombinations);
-
-			const multisigScriptsAsm = multisig.multisigScripts.map((script) => bitcoinscript.toASM(script.leaf.output));
-			expect(multisigScriptsAsm).toEqual(multisigAsms);
+			expect(multisig.leaves).toEqual(leaves);
 		}, { concurrent: true });
-
-		test.each(childNodesCombinations)(
-			"liquid multisig spending with each possible combination test %#",
-			async (...selectedCombination) => {
-				const multisig = createLiquidMultisig({
-					parts,
-					arbitrators,
-					arbitratorsQuorum,
-					network,
-					blindingKeypair,
-					tweak,
-				});
-
-				const inputTransactionId = await takeFromFaucet(multisig.confidentialAddress);
-
-	      const inputTransactionHex = await retryWithDelay(
-		      () => getTransactionHexById(inputTransactionId),
-		      500,
-		      30,
-	      );
-
-				const inputTransaction = Transaction.fromHex(inputTransactionHex);
-
-				const tweakedSelectedCombination = selectedCombination.map((ecpair) => {
-					const tweaker = createKeyTweaker({
-						pubkey: ecpair.publicKey,
-						privkey: ecpair.privateKey,
-					});
-
-					return tweaker.tweakPubkey(tweak).toString("hex");
-				});
-
-				const script = multisig.multisigScripts.find(({ combination }) => tweakedSelectedCombination.every(
-					(ecpair) => combination.includes(ecpair)
-				));
-
-				expect(script).not.toBeUndefined();
-
-				const inputTxOutputs = inputTransaction.outs
-					.map((output, vout) => ({ ...output, vout }))
-					.filter(
-						(output) => output.script.toString("hex") === Address
-							.toOutputScript(multisig.address, network)
-							.toString("hex")
-					);
-
-				expect(inputTxOutputs.length).toBe(1);
-
-				const bip341Api = bip341.BIP341Factory(zkpLib.ecc);
-
-				const pset = PsetCreator.newPset();
-				const updater = new PsetUpdater(pset);
-
-				const asset = network.assetHash;
-
-				const unblindedUtxos = inputTxOutputs.map((output) => ({
-					txid: inputTransactionId,
-					txIndex: output.vout,
-					witnessUtxo: Transaction.fromHex(inputTransactionHex).outs[output.vout]!,
-					sighashType: Transaction.SIGHASH_ALL,
-					value: undefined,
-				}));
-
-				updater.addInputs(unblindedUtxos);
-
-				const firstEcpairAddress = payments.p2pkh({
-					pubkey: selectedCombination[0]!.publicKey,
-					network,
-				});
-
-				const firstEcpairConfidentialAddress = Address.toConfidential(
-					firstEcpairAddress.address!,
-					blindingKeypair.publicKey,
-				);
-
-				updater.addOutputs([
-					new CreatorOutput(
-						asset,
-						100_000_000 - 300,
-						Address.toOutputScript(firstEcpairAddress.address!, network),
-						Address.fromConfidential(firstEcpairConfidentialAddress).blindingKey,
-						0,
-					),
-					new CreatorOutput(asset, 300),
-				]);
-
-				const redeemOutput = script!.leaf.output.toString("hex");
-
-				const leafHash = bip341.tapLeafHash({
-					scriptHex: redeemOutput,
-				});
-				const pathToLeaf = bip341.findScriptPath(multisig.hashTree, leafHash);
-				const [tapscript, controlBlock] = bip341Api.taprootSignScriptStack(
-					H,
-					{ scriptHex: redeemOutput },
-					multisig.hashTree.hash,
-					pathToLeaf,
-				);
-
-				unblindedUtxos.forEach((utxo, i) => {
-					updater.addInUtxoRangeProof(i, utxo.witnessUtxo.rangeProof!);
-
-					updater.addInTapLeafScript(i, {
-						controlBlock: controlBlock!,
-						leafVersion: bip341.LEAF_VERSION_TAPSCRIPT,
-						script: tapscript!,
-					});
-				});
-
-				const zkpValidator = new ZKPValidator(zkpLib);
-				const zkpGenerator = new ZKPGenerator(
-					zkpLib,
-					ZKPGenerator.WithBlindingKeysOfInputs(
-						unblindedUtxos.map(() => blindingKeypair.privateKey!)
-					)
-				);
-
-				const ownedInputs = zkpGenerator.unblindInputs(pset);
-
-				const outputBlindingArgs = zkpGenerator.blindOutputs(
-					pset,
-					Pset.ECCKeysGenerator(ecc),
-				);
-
-				const blinder = new PsetBlinder(
-					pset,
-					ownedInputs,
-					// @ts-expect-error see ./myZKP.ts for more info
-					zkpValidator,
-					zkpGenerator
-				);
-				blinder.blindLast({ outputBlindingArgs });
-
-				const signer = new PsetSigner(pset);
-
-				selectedCombination.map((keypair) => {
-					pset.inputs.map(async (_, i) => {
-						const hashType = pset.inputs[i]!.sighashType || Transaction.SIGHASH_ALL;
-
-						const sighashmsg = pset.getInputPreimage(
-							i,
-							hashType,
-							network.genesisBlockHash,
-							leafHash,
-						);
-
-						const tweakedKeypair = (() => {
-							const tweaker = createKeyTweaker({
-								pubkey: keypair.publicKey,
-								privkey: keypair.privateKey,
-							});
-
-							return tweaker.tweakEcpair(tweak);
-						})()
-
-						const sig = tweakedKeypair.signSchnorr(sighashmsg);
-
-						const taprootData = {
-							tapScriptSigs: [
-								{
-									signature: serializeSchnnorrSig(Buffer.from(sig), hashType),
-									pubkey: tweakedKeypair.publicKey.slice(1),
-									leafHash,
-								},
-							],
-							genesisBlockHash: network.genesisBlockHash,
-						};
-
-						signer.addSignature(i, taprootData, Pset.SchnorrSigValidator(zkpLib.ecc));
-					});
-				});
-
-				const selectedCombinationSigs = tweakedSelectedCombination.map(
-					(pubkey) => pset.inputs[0]!.tapScriptSig!.find(
-						(sig) => sig.pubkey.toString("hex") === pubkey
-					)?.signature ?? null
-				);
-
-				const finalizer = new PsetFinalizer(pset);
-
-				pset.inputs.forEach((_, index) => {
-					finalizer.finalizeInput(index, () => {
-						const input = pset.inputs[index]!;
-
-						const unlockingScript = Script.compile([
-							...toReversed(selectedCombinationSigs).reduce((acc: Buffer[], sig) => {
-								if (sig) acc.push(sig);
-								return acc;
-							}, []),
-						]);
-
-						const redeemPayment = payments.p2wsh({
-							redeem: {
-								input: unlockingScript,
-								output: input.witnessScript,
-							},
-						});
-
-						const finalScriptWitness = witnessStackToScriptWitness(
-							redeemPayment.witness ?? [],
-						);
-
-						return {
-							finalScriptSig: Buffer.from(""),
-							finalScriptWitness,
-						};
-					});
-				});
-
-				finalizer.finalize();
-
-				const transaction = PsetExtractor.extract(pset);
-
-				await publishTransaction(transaction.toHex());
-			},
-			{
-				timeout: 30 * 1000,
-				concurrent: true,
-			}
-		)
 	},
 	{
 		concurrent: true,

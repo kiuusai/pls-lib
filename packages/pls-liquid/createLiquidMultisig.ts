@@ -59,7 +59,7 @@ export function createLiquidMultisig({
 			// when building Taptree, prioritize parts agreement script (shortest path), using 1 for parts script and 5 for scripts with arbitrators
 			weight: idx ? 1 : 5,
 			leaf: { output: bitcoinscript.fromASM(ma) },
-			combination: tweakedChildNodesCombinations[idx]!,
+			combination: childNodesCombinations[idx]!,
 		};
 	});
 
