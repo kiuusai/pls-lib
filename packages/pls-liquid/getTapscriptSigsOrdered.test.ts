@@ -101,7 +101,7 @@ describe("getTapscriptSigsOrdered test", () => {
 		const inputTransaction = Transaction.fromHex(inputTransactionHex);
 
 		const script = multisig.multisigScripts.find(({ combination }) =>
-			tweakedPartsEcpairs.every((ecpair) =>
+			partsEcpairs.every((ecpair) =>
 				combination.includes(ecpair.publicKey.toString("hex")),
 			),
 		);

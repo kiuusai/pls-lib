@@ -91,7 +91,7 @@ describe(
 			const inputTransaction = Transaction.fromHex(inputTransactionHex);
 
 			const script = multisig.multisigScripts.find(({ combination }) =>
-				tweakedSelectedCombination.every((ecpair) =>
+				partsEcpairs.every((ecpair) =>
 					combination.includes(ecpair.publicKey.toString("hex")),
 				),
 			);

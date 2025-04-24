@@ -67,5 +67,9 @@ describe(
 
 			expect(unblindedUtxoValue).toEqual(100_000_000);
 		})
+	},
+	{
+		concurrent: true,
+		timeout: 30 * 1000,
 	}
 )

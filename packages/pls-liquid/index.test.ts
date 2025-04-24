@@ -110,17 +110,8 @@ async function testMultisigWithParameters({
 
 	const inputTransaction = Transaction.fromHex(inputTransactionHex);
 
-	const tweakedUsedKeysCombination = usedKeysCombination.map((ecpair) => {
-		const tweaker = createKeyTweaker({
-			pubkey: ecpair.publicKey,
-			privkey: ecpair.privateKey,
-		});
-
-		return tweaker.tweakEcpair(tweak);
-	})
-
 	const script = multisig.multisigScripts.find(({ combination }) =>
-		tweakedUsedKeysCombination.every((ecpair) =>
+		usedKeysCombination.every((ecpair) =>
 			combination.includes(ecpair.publicKey.toString("hex"))
 		)
 	);
@@ -286,5 +277,6 @@ describe(
 	},
 	{
 		timeout: 60 * 1000,
+		concurrent: true,
 	}
 );

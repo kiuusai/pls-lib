@@ -76,15 +76,6 @@ describe(
 		);
 
 		test.each(childNodesCombinations)("spending correctly finalized test %#", async (...selectedCombination) => {
-			const tweakedSelectedCombination = selectedCombination.map((ecpair) => {
-				const tweaker = createKeyTweaker({
-					pubkey: ecpair.publicKey,
-					privkey: ecpair.privateKey,
-				});
-
-				return tweaker.tweakEcpair(tweak);
-			});
-
 			const inputTransactionId = await takeFromFaucet(multisig.confidentialAddress);
 
 			const inputTransactionHex = await retryWithDelay(
@@ -96,7 +87,7 @@ describe(
 			const inputTransaction = Transaction.fromHex(inputTransactionHex);
 
 			const script = multisig.multisigScripts.find(({ combination }) =>
-				tweakedSelectedCombination.every((ecpair) =>
+				selectedCombination.every((ecpair) =>
 					combination.includes(ecpair.publicKey.toString("hex")),
 				),
 			);
